@@ -28,16 +28,42 @@ Rating: 260202
     with 243402
 '''
 
+def check_ISBN_format(x):
+    return re.sub('[^A-Za-z0-9]', '', x)
+
 def get_books_ISBN(filename):
     books = np.array(pd.read_csv(filename, header=0)['ISBN']).astype(str)
-    books = [ re.sub('[^A-Za-z0-9]', '', b) for b in books ]
+    books = [ check_ISBN_format(b) for b in books ]
     return books
 
-def save_all_books_ISBN(filename):
+def get_users_name(filename):
+    users = np.array(pd.read_csv(filename, header=0)['User-ID']).astype(str)
+    return users
+
+def get_ratings(filename):
+    R = np.array(pd.read_csv('data/book_ratings_train.csv', header=0)['Book-Rating'])
+    #_ = np.histogram(ratings, 9)
+
+def save_all_users_name():
+    users = get_users_name('data/users.csv')
+    users.sort()
+    np.savetxt('users_name.csv', users, fmt='%s')
+
+def save_all_books_ISBN():
     books_1 = get_books_ISBN('data/books.csv')
     books_2 = get_books_ISBN('data/book_ratings_train.csv')
     books_3 = get_books_ISBN('data/book_ratings_test.csv')
     books_4 = get_books_ISBN('data/implicit_ratings.csv')
+
+    print('Books in "book_ratings_train.csv" but not in "books.csv": {}'.format(
+            len(np.setdiff1d(books_2, books_1))
+        ))
+    print('Books in "book_ratings_test.csv" but not in "books.csv": {}'.format(
+            len(np.setdiff1d(books_3, books_1))
+        ))
+    print('Books in "implicit_ratings.csv" but not in "books.csv": {}'.format(
+            len(np.setdiff1d(books_4, books_1))
+        ))
 
     books = set(books_1) | set(books_2) | set(books_3) | set(books_4)
     books = list(books)
@@ -56,108 +82,76 @@ def get_countries():
     locations = np.array( data['Location'].astype(str) )
     countries = [ l.split(',')[-1] for l in locations ]
 
-def read_book_crossing_test(data_dirname='data', users_name2id=None, books_ISBN2id=None):
+def read_test(users_name2id=None, books_ISBN2id=None):
     
-    rating_filename = os.path.join(data_dirname, 'book_ratings_test.csv')
+    filename = 'data/book_ratings_test.csv'
     user_ids = []
     book_ids = []
-    with open(rating_filename, 'r') as f:
+    with open(filename, 'r') as f:
         data_reader = csv.reader(f)
 
         for i, x in enumerate(data_reader):
             if i == 0:
                 continue
-            print('Rating: {}'.format(i), end='\r')
-            if x[0] not in users_name2id:
-                user_id = users_name2id['unknown_user']
-                #print('User {} unknown'.format(x[0]))
-            else:
-                user_id = users_name2id[x[0]]
+            print('{}: {}'.format(filename, i), end='\r')
+            user_id = users_name2id[x[0]]
             user_ids.append(user_id)
-            if x[1] not in books_ISBN2id:
-                book_id = books_ISBN2id['unknown_book']
-                #print('Book {} unknown'.format(x[1]))
-            else:
-                book_id = books_ISBN2id[x[1]]
+            book_id = books_ISBN2id[check_ISBN_format(x[1])]
             book_ids.append(book_id)
+    print()
     return np.array(user_ids), np.array(book_ids)
 
-def read_book_crossing(data_dirname='data'):
-    users_filename = os.path.join(data_dirname, 'users.csv')
-    users_name = ['unknown_user']
-    with open(users_filename, 'r') as f:
-        data_reader = csv.reader(f)
+def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False):
 
-        for i, x in enumerate(data_reader):
-            if i == 0:
-                continue
-            print('Users: {}'.format(i), end='\r')
-            users_name.append(x[0])
-    print()
-    
-    users_name.sort()
-    N = len(users_name)
-    users_name2id = dict( zip(users_name, range(N)) )
+    N = len(users_name2id)
+    M = len(books_ISBN2id)
 
-    books_filename = os.path.join(data_dirname, 'books.csv')
-    books_ISBN = ['unknown_book']
-    with open(books_filename, 'r') as f:
-        data_reader = csv.reader(f)
+    if implicit:
+        npy_filename = 'ratings_train_all.npy'
+    else:
+        npy_filename = 'ratings_train_nonzero.npy'
 
-        for i, x in enumerate(data_reader):
-            if i == 0:
-                continue
-            print('Books: {}'.format(i), end='\r')
-            ISBN = x[0]
-            ISBN.replace('.', '')
-            books_ISBN.append(ISBN)
-    print()
-
-    books_ISBN.sort()
-    M = len(books_ISBN)
-    books_ISBN2id = dict( zip(books_ISBN, range(M)) )
-
-    if not os.path.exists('ratings_train.npy'):
-        rating_filename = os.path.join(data_dirname, 'book_ratings_train.csv')
-        #rating_matrix = np.zeros([N, M])
+    if not os.path.exists(npy_filename):
         user_ids = []
         book_ids = []
         ratings = []
-        with open(rating_filename, 'r') as f:
+
+        filename1 = 'data/book_ratings_train.csv'
+        with open(filename1, 'r') as f:
             data_reader = csv.reader(f)
 
             for i, x in enumerate(data_reader):
                 if i == 0:
                     continue
-                print('Rating: {}'.format(i), end='\r')
-                if x[0] not in users_name:
-                    user_id = users_name2id['unknown_user']
-                    #print('User {} unknown'.format(x[0]))
-                else:
-                    user_id = users_name2id[x[0]]
+                print('{}: {}'.format(filename1, i), end='\r')
+                user_id = users_name2id[x[0]]
                 user_ids.append(user_id)
-                if x[1] not in books_ISBN:
-                    book_id = books_ISBN2id['unknown_book']
-                    #print('Book {} unknown'.format(x[1]))
-                else:
-                    book_id = books_ISBN2id[x[1]]
+                book_id = books_ISBN2id[check_ISBN_format(x[1])]
                 book_ids.append(book_id)
-                
                 ratings.append(int(x[2]))
         print()
-        rating_matrix = sparse.csc_matrix( (ratings, (user_ids,book_ids)), shape=[N+1,M+1] )
-        np.save('ratings_train.npy', rating_matrix)
-    rating_matrix = np.load('ratings_train.npy')[()]
 
-    data = dict(
-        N = N,
-        M = M,
-        users_name2id = users_name2id,
-        books_ISBN2id = books_ISBN2id,
-        rating_matrix = rating_matrix,
-    )
+        if implicit:
+            filename2 = 'data/implicit_ratings.csv'
+            with open(filename2, 'r') as f:
+                data_reader = csv.reader(f)
 
-    return data
+                for i, x in enumerate(data_reader):
+                    if i == 0:
+                        continue
+                    print('{}: {}'.format(filename2, i), end='\r')
+                    user_id = users_name2id[x[2]]
+                    user_ids.append(user_id)
+                    book_id = books_ISBN2id[check_ISBN_format(x[1])]
+                    book_ids.append(book_id)
+                    ratings.append(int(x[0]))
+            print()
+        
+        rating_matrix = sparse.csc_matrix( (ratings, (user_ids,book_ids)), shape=[N,M] )
+        np.save(npy_filename, rating_matrix)
+    rating_matrix = np.load(npy_filename)[()]
+
+    return rating_matrix
 
 def read_users(data_dirname='data'):
     users_filename = os.path.join(data_dirname, 'users.csv')
@@ -205,6 +199,7 @@ if __name__ == '__main__':
     #X = download_books_cover_images()
     #X = read_book_crossing()
     #user_ids, book_ids = read_book_crossing_test(X=X)
+    '''
     location_corpus = np.array(pd.read_csv('data/users.csv', header=0)['Location']).astype(str)
     tmp = []
     for line in location_corpus:
@@ -216,5 +211,9 @@ if __name__ == '__main__':
     location_corpus = '\n'.join(tmp)
     with open('location_corpus.txt', 'w') as f:
         f.write(location_corpus)
+    '''
+    #users = get_users_name('data/users.csv')
+
+
 
     pass
