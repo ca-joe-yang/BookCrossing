@@ -5,10 +5,9 @@ import csv
 import wget
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 import re
 from scipy import sparse
-from glove import Glove
-
 '''
 0: ISBN
 1: Book-Title
@@ -27,6 +26,21 @@ Rating: 260202
 <278860x271381 sparse matrix of type '<class 'numpy.int64'>'
     with 243402
 '''
+
+def build_dataset(R, n_epoch, batch_size, shuffle):
+    user_ids, book_ids = R.nonzero()
+    labels = np.array(R[user_ids, book_ids])[0]
+
+    dataset = tf.data.Dataset.from_tensor_slices((user_ids, book_ids, labels))
+
+    if shuffle:
+        dataset = dataset.shuffle(5000)
+    
+    dataset = dataset.repeat(n_epoch)
+    dataset = dataset.batch(batch_size)
+
+    return dataset
+
 
 def check_ISBN_format(x):
     return re.sub('[^A-Za-z0-9]', '', x)
@@ -63,6 +77,9 @@ def save_all_books_ISBN():
         ))
     print('Books in "implicit_ratings.csv" but not in "books.csv": {}'.format(
             len(np.setdiff1d(books_4, books_1))
+        ))
+    print('Books in "book_ratings_test.csv" but not in "book_ratings_train.csv": {}'.format(
+            len(np.setdiff1d(books_3, books_2))
         ))
 
     books = set(books_1) | set(books_2) | set(books_3) | set(books_4)
@@ -214,6 +231,6 @@ if __name__ == '__main__':
     '''
     #users = get_users_name('data/users.csv')
 
-
+    save_all_books_ISBN()
 
     pass
