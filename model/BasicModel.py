@@ -27,6 +27,10 @@ class BasicModel():
         init = tf.global_variables_initializer()
         self.sess.run(init)
 
+    def _print_shape(self, x):
+        x = tf.Print(x, [tf.shape(x)], message="This is a: ")
+        return x
+
     def save(self):
         if not os.path.exists(self.checkpoint_dirname):
             os.makedirs(self.checkpoint_dirname)

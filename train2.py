@@ -19,14 +19,14 @@ flags = tf.app.flags
 flags.DEFINE_integer('n_epoch', 10, 'Epochs to train [50]')
 flags.DEFINE_integer('batch_size', 128, '')
 
-flags.DEFINE_float('lr', 5e-3, 'Learning rate [0.00017]')
+flags.DEFINE_float('lr', 1e-3, 'Learning rate [0.00017]')
 #flags.DEFINE_float('keep_prob', 0.5, '')
-flags.DEFINE_float('weight_decay', 0.0001, '')
+flags.DEFINE_float('weight_decay', 0.0000, '')
 
 flags.DEFINE_boolean('restore_ckpt', False, '')
 
 #flags.DEFINE_string('data_dirname', 'HW5_data', '')
-flags.DEFINE_string('model_name', 'age', '')
+flags.DEFINE_string('model_name', 'mse', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -36,7 +36,6 @@ config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.9
 
 users_name = np.genfromtxt('users_name.csv', dtype=str)
-user_ages = my_IO.get_user_ages('data/users.csv') / 100.0
 n_users = len(users_name)
 books_ISBN = np.genfromtxt('books_ISBN.csv', dtype=str)
 n_books = len(books_ISBN)
@@ -50,7 +49,7 @@ mu = R_train.sum() / R_train.nnz
 with tf.Session(config=config) as sess:
 
     # Initializaing and building model 
-    model = Embed(
+    model = Baseline(
         sess=sess,
         model_name=FLAGS.model_name,
         checkpoint_dirname=FLAGS.checkpoint_dirname,
@@ -86,13 +85,12 @@ with tf.Session(config=config) as sess:
         time_total = 0
         for _ in range(n_train_batch):
             b_user_ids, b_item_ids, b_labels = sess.run([train_user_ids, train_item_ids, train_labels])
-            b_user_ages = user_ages[b_user_ids].reshape(-1, 1)
 
             time_start = time.time()
 
             current_batch_size = len(b_user_ids)
 
-            b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_labels, b_user_ages, is_training=True, weight_decay=FLAGS.weight_decay)
+            b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_labels, is_training=True, weight_decay=FLAGS.weight_decay)
 
             b_time = time.time()-time_start
             count += current_batch_size
@@ -145,7 +143,6 @@ with tf.Session(config=config) as sess:
         '''
 
     test_user_ids, test_book_ids = my_IO.read_test(users_name2id, books_ISBN2id)
-    test_user_ages = user_ages[test_user_ids].reshape(-1, 1)
-    result = model.predict(test_user_ids, test_book_ids, test_user_ages, FLAGS.batch_size)
-    np.savetxt('age.csv', result.astype(int), fmt='%d')
+    result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
+    np.savetxt('reg.csv', result.astype(int), fmt='%d')
 

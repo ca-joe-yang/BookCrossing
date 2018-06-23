@@ -2,7 +2,6 @@
 
 import os
 import csv
-import wget
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -36,8 +35,8 @@ def build_dataset(R, n_epoch, batch_size, shuffle):
     if shuffle:
         dataset = dataset.shuffle(5000)
     
-    dataset = dataset.repeat(n_epoch)
     dataset = dataset.batch(batch_size)
+    dataset = dataset.repeat(n_epoch)
 
     return dataset
 
@@ -53,6 +52,12 @@ def get_books_ISBN(filename):
 def get_users_name(filename):
     users = np.array(pd.read_csv(filename, header=0)['User-ID']).astype(str)
     return users
+
+def get_user_ages(filename):
+    ages = np.array(pd.read_csv(filename, header=0)['Age']).astype(int)
+    avg = np.sum(ages[ages > 0]) / np.sum(ages > 0)
+    ages[ages < 0] = avg
+    return ages
 
 def get_ratings(filename):
     R = np.array(pd.read_csv('data/book_ratings_train.csv', header=0)['Book-Rating'])
@@ -118,7 +123,7 @@ def read_test(users_name2id=None, books_ISBN2id=None):
     print()
     return np.array(user_ids), np.array(book_ids)
 
-def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False):
+def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False, split=0):
 
     N = len(users_name2id)
     M = len(books_ISBN2id)
@@ -128,47 +133,45 @@ def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False):
     else:
         npy_filename = 'ratings_train_nonzero.npy'
 
-    if not os.path.exists(npy_filename):
-        user_ids = []
-        book_ids = []
-        ratings = []
+    user_ids = []
+    book_ids = []
+    ratings = []
 
-        filename1 = 'data/book_ratings_train.csv'
-        with open(filename1, 'r') as f:
+    filename1 = 'data/book_ratings_train.csv'
+    with open(filename1, 'r') as f:
+        data_reader = csv.reader(f)
+
+        for i, x in enumerate(data_reader):
+            if i == 0:
+                continue
+            print('{}: {}'.format(filename1, i), end='\r')
+            user_id = users_name2id[x[0]]
+            user_ids.append(user_id)
+            book_id = books_ISBN2id[check_ISBN_format(x[1])]
+            book_ids.append(book_id)
+            ratings.append(int(x[2]))
+    print()
+
+    if implicit:
+        filename2 = 'data/implicit_ratings.csv'
+        with open(filename2, 'r') as f:
             data_reader = csv.reader(f)
 
             for i, x in enumerate(data_reader):
                 if i == 0:
                     continue
-                print('{}: {}'.format(filename1, i), end='\r')
-                user_id = users_name2id[x[0]]
+                print('{}: {}'.format(filename2, i), end='\r')
+                user_id = users_name2id[x[2]]
                 user_ids.append(user_id)
                 book_id = books_ISBN2id[check_ISBN_format(x[1])]
                 book_ids.append(book_id)
-                ratings.append(int(x[2]))
+                ratings.append(int(x[0]))
         print()
+    
+    R_train = sparse.csc_matrix( (ratings[split:], (user_ids[split:], book_ids[split:])), shape=[N,M] )
+    R_valid = sparse.csc_matrix( (ratings[:split], (user_ids[:split], book_ids[:split])), shape=[N,M] )
 
-        if implicit:
-            filename2 = 'data/implicit_ratings.csv'
-            with open(filename2, 'r') as f:
-                data_reader = csv.reader(f)
-
-                for i, x in enumerate(data_reader):
-                    if i == 0:
-                        continue
-                    print('{}: {}'.format(filename2, i), end='\r')
-                    user_id = users_name2id[x[2]]
-                    user_ids.append(user_id)
-                    book_id = books_ISBN2id[check_ISBN_format(x[1])]
-                    book_ids.append(book_id)
-                    ratings.append(int(x[0]))
-            print()
-        
-        rating_matrix = sparse.csc_matrix( (ratings, (user_ids,book_ids)), shape=[N,M] )
-        np.save(npy_filename, rating_matrix)
-    rating_matrix = np.load(npy_filename)[()]
-
-    return rating_matrix
+    return R_train, R_valid
 
 def read_users(data_dirname='data'):
     users_filename = os.path.join(data_dirname, 'users.csv')

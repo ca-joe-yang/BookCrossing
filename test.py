@@ -15,12 +15,9 @@ from itertools import count
 
 flags = tf.app.flags
 
-flags.DEFINE_integer('batch_size', 128, '')
+flags.DEFINE_integer('batch_size', 32, '')
 
-#flags.DEFINE_string('videos_dirname', None, '')
-#flags.DEFINE_string('gt_filename', None, '')
-#flags.DEFINE_string('result_dirname', None, '')
-flags.DEFINE_string('model_name', 'small_lr-800', '')
+flags.DEFINE_string('model_name', 'mse-26429', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -29,52 +26,30 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.9
 
+users_name = np.genfromtxt('users_name.csv', dtype=str)
+user_ages = my_IO.get_user_ages('data/users.csv') / 100.0
+n_users = len(users_name)
+books_ISBN = np.genfromtxt('books_ISBN.csv', dtype=str)
+n_books = len(books_ISBN)
+users_name2id = dict(zip(users_name, range(n_users)))
+books_ISBN2id = dict(zip(books_ISBN, range(n_books)))
+
+R_train, _ = my_IO.read_ratings_train(users_name2id, books_ISBN2id, implicit=False)
+mu = R_train.sum() / R_train.nnz
+
 with tf.Session(config=config) as sess:
 
     # Initializaing and building model 
-    model = ResNet50(
+    model = Baseline(
         sess=sess,
         model_name=FLAGS.model_name,
         checkpoint_dirname=FLAGS.checkpoint_dirname,
     )
-    model.build(n_class=10)
+    model.build(mu=mu, N=n_users, M=n_books)
     model.load()
 
-    data_dirname = 'data/Fashion_MNIST_student/test'
+    test_user_ids, test_book_ids = my_IO.read_test(users_name2id, books_ISBN2id)
+    test_user_ages = user_ages[test_user_ids].reshape(-1, 1)
 
-    im_names, labels = my_IO.load_dataset(data_dirname, return_labels=False)
-    N = len(im_names)
-
-    dataset = my_IO.build_dataset(im_names, labels, n_epoch=1, batch_size=FLAGS.batch_size, shuffle=False)
-    images, labels = dataset.make_one_shot_iterator().get_next()
-
-    time_total = 0
-    preds = []
-    for start_idx in count(step=FLAGS.batch_size):
-        try:
-            b_images, _ = sess.run([images, labels])
-        except tf.errors.OutOfRangeError:
-            print()  # Done!
-            break
-
-        time_start = time.time()
-
-        current_batch_size = len(b_images)
-        end_idx = start_idx + current_batch_size
-
-        b_preds = model.predict(b_images)
-        preds.append(b_preds)
-
-        b_time = int( time.time()-time_start )
-        time_total += b_time
-        time_eta = int( time_total * (N-end_idx) / end_idx )
-
-        print('[Prediction] [ETA: {} s] [{:.2f} s/it]'.format(
-                time_eta, 
-                b_time,
-            ), end='\r')
-
-    print()
-    preds = np.concatenate(preds, axis=0)
-    my_IO.save_prediction('task_1.csv', im_names, preds)
-    #np.savetxt('task_1.csv', preds, fmt='%d')
+    result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
+    np.savetxt('latent.csv', result.astype(int), fmt='%d')
