@@ -27,11 +27,11 @@ class Embed(Baseline):
         self.weight_decay = tf.placeholder(tf.float32, name='weight_decay')
 
         self.bu = tf.get_variable(name='bu', shape=[N], 
-            initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01, dtype=tf.float32),
+            initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.5, dtype=tf.float32),
             regularizer=tf.contrib.layers.l2_regularizer(scale=self.weight_decay))
         
         self.bi = tf.get_variable(name='bi', shape=[M], 
-            initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.01, dtype=tf.float32),
+            initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.5, dtype=tf.float32),
             regularizer=tf.contrib.layers.l2_regularizer(scale=self.weight_decay))
 
         # Age
@@ -48,7 +48,7 @@ class Embed(Baseline):
 
         with slim.arg_scope(
             [slim.fully_connected],
-            weights_initializer=tf.truncated_normal_initializer(mean=0, stddev=0.01),
+            weights_initializer=tf.truncated_normal_initializer(mean=0, stddev=0.1),
             biases_initializer=tf.zeros_initializer(),
         ):  
         

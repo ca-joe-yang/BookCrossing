@@ -52,7 +52,7 @@ class Baseline(BasicModel):
             self.mae_loss = tf.reduce_mean(tf.abs( tf.cast(self.labels, tf.float32) - self.preds ))
             mse_loss = tf.losses.mean_squared_error( tf.cast(self.labels, tf.float32), self.preds )
             reg_loss = tf.reduce_sum( tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) )
-            self.loss = mse_loss + reg_loss
+            self.loss = mse_loss #+ reg_loss
         tf.summary.scalar('Loss', self.loss)
 
         with tf.variable_scope('accuracy'):

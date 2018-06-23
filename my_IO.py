@@ -53,11 +53,16 @@ def get_users_name(filename):
     users = np.array(pd.read_csv(filename, header=0)['User-ID']).astype(str)
     return users
 
-def get_user_ages(filename):
-    ages = np.array(pd.read_csv(filename, header=0)['Age']).astype(int)
+def get_user_embeds(filename):
+    x =  pd.read_csv(filename, header=0)
+    users = np.array(x['User-ID']).astype(str)
+    ages = np.array(x['Age']).astype(int)
     avg = np.sum(ages[ages > 0]) / np.sum(ages > 0)
     ages[ages < 0] = avg
-    return ages
+    ages = ages / 100.0
+
+    embeds = dict(zip(users, ages))
+    return embeds
 
 def get_ratings(filename):
     R = np.array(pd.read_csv('data/book_ratings_train.csv', header=0)['Book-Rating'])

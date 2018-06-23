@@ -9,22 +9,24 @@ import tensorflow as tf
 import numpy as np
 
 from model import *
-from itertools import count
+from scipy import sparse
+
 
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 flags = tf.app.flags
 
-flags.DEFINE_integer('n_epoch', 15, 'Epochs to train [50]')
-flags.DEFINE_integer('batch_size', 128, '')
+flags.DEFINE_integer('n_epoch', 5, 'Epochs to train [50]')
+flags.DEFINE_integer('batch_size', 8, '')
 
-flags.DEFINE_float('lr', 1e-3, 'Learning rate [0.00017]')
+flags.DEFINE_float('lr', 1e-2, 'Learning rate [0.00017]')
 #flags.DEFINE_float('keep_prob', 0.5, '')
-flags.DEFINE_float('weight_decay', 0.0005, '')
+flags.DEFINE_float('weight_decay', 0.0000, '')
 
 flags.DEFINE_boolean('restore_ckpt', False, '')
 
-flags.DEFINE_string('model_name', 'new', '')
+#flags.DEFINE_string('data_dirname', 'HW5_data', '')
+flags.DEFINE_string('model_name', 'age', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -44,14 +46,15 @@ n_books = len(book_ISBNs)
 user_name2id = dict(zip(user_names, range(n_users)))
 book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
 
-split = 80000
+split = 0
 R_train, R_valid = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=False, split=split)
+
 mu = R_train.sum() / R_train.nnz
 
 with tf.Session(config=config) as sess:
-    result_filename = 'baseline.csv'
+
     # Initializaing and building model 
-    model = LatentFactor(
+    model = Baseline(
         sess=sess,
         model_name=FLAGS.model_name,
         checkpoint_dirname=FLAGS.checkpoint_dirname,
@@ -75,7 +78,10 @@ with tf.Session(config=config) as sess:
         valid_dataset = my_IO.build_dataset(R_train, n_epoch=FLAGS.n_epoch, batch_size=FLAGS.batch_size, shuffle=False)
         valid_user_ids, valid_item_ids, valid_labels = valid_dataset.make_one_shot_iterator().get_next()
         n_valid = R_valid.nnz
-        n_valid_batch = np.ceil(n_valid / FLAGS.batch_size).astype(int)    
+        n_valid_batch = np.ceil(n_valid / FLAGS.batch_size).astype(int)
+
+    #best_evaluation = -np.float('inf')
+    
 
     for epoch_idx in range(FLAGS.n_epoch):
         train_loss = []
@@ -144,5 +150,5 @@ with tf.Session(config=config) as sess:
     test_user_ids, test_book_ids = my_IO.read_test(user_name2id, book_ISBN2id)
     #test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
     result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
-    np.savetxt(result_filename, result.astype(int), fmt='%d')
+    np.savetxt('latent.csv', result.astype(int), fmt='%d')
 

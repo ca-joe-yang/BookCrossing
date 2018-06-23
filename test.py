@@ -17,7 +17,7 @@ flags = tf.app.flags
 
 flags.DEFINE_integer('batch_size', 32, '')
 
-flags.DEFINE_string('model_name', 'mse-26429', '')
+flags.DEFINE_string('model_name', 'new-121980', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -26,15 +26,16 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.9
 
-users_name = np.genfromtxt('users_name.csv', dtype=str)
-user_ages = my_IO.get_user_ages('data/users.csv') / 100.0
-n_users = len(users_name)
-books_ISBN = np.genfromtxt('books_ISBN.csv', dtype=str)
-n_books = len(books_ISBN)
-users_name2id = dict(zip(users_name, range(n_users)))
-books_ISBN2id = dict(zip(books_ISBN, range(n_books)))
+user_names = np.genfromtxt('users_name.csv', dtype=str)
+user_embeds = my_IO.get_user_embeds('data/users.csv')
+user_embeds = np.array([ user_embeds[name] for name in user_names ])
+n_users = len(user_names)
+book_ISBNs = np.genfromtxt('books_ISBN.csv', dtype=str)
+n_books = len(book_ISBNs)
+user_name2id = dict(zip(user_names, range(n_users)))
+book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
 
-R_train, _ = my_IO.read_ratings_train(users_name2id, books_ISBN2id, implicit=False)
+R_train, _ = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=False)
 mu = R_train.sum() / R_train.nnz
 
 with tf.Session(config=config) as sess:
@@ -48,8 +49,8 @@ with tf.Session(config=config) as sess:
     model.build(mu=mu, N=n_users, M=n_books)
     model.load()
 
-    test_user_ids, test_book_ids = my_IO.read_test(users_name2id, books_ISBN2id)
-    test_user_ages = user_ages[test_user_ids].reshape(-1, 1)
+    test_user_ids, test_book_ids = my_IO.read_test(user_name2id, book_ISBN2id)
+    test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
 
     result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
     np.savetxt('latent.csv', result.astype(int), fmt='%d')
