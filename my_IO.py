@@ -64,6 +64,27 @@ def get_user_embeds(filename):
     embeds = dict(zip(users, ages))
     return embeds
 
+def get_item_embeds(filename, item_names):
+    tmp = np.load(filename)[()]
+    
+    x = {}
+    embed_shape = None
+    for key, value in tmp.items():
+        if embed_shape is None:
+            embed_shape = value[0].shape
+        x[check_ISBN_format(key)] = value[0]
+
+    embeds = []
+    for name in item_names:
+        try:
+            embed = x[check_ISBN_format(name)]
+        except KeyError:
+            embed = np.zeros(embed_shape)
+        embeds.append(embed)
+    embeds = np.array(embeds)
+
+    return embeds
+
 def get_ratings(filename):
     R = np.array(pd.read_csv('data/book_ratings_train.csv', header=0)['Book-Rating'])
     #_ = np.histogram(ratings, 9)
@@ -239,6 +260,5 @@ if __name__ == '__main__':
     '''
     #users = get_users_name('data/users.csv')
 
-    save_all_books_ISBN()
 
     pass

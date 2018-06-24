@@ -15,7 +15,7 @@ from itertools import count
 
 flags = tf.app.flags
 
-flags.DEFINE_integer('n_epoch', 15, 'Epochs to train [50]')
+flags.DEFINE_integer('n_epoch', 20, 'Epochs to train [50]')
 flags.DEFINE_integer('batch_size', 128, '')
 
 flags.DEFINE_float('lr', 1e-3, 'Learning rate [0.00017]')
@@ -24,7 +24,7 @@ flags.DEFINE_float('weight_decay', 0.0005, '')
 
 flags.DEFINE_boolean('restore_ckpt', False, '')
 
-flags.DEFINE_string('model_name', 'new', '')
+flags.DEFINE_string('model_name', 'title', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -39,19 +39,20 @@ user_embeds = np.array([ user_embeds[name] for name in user_names ])
 n_users = len(user_names)
 
 book_ISBNs = np.genfromtxt('books_ISBN.csv', dtype=str)
+item_embeds = my_IO.get_item_embeds('books_ignore_oov.npy', book_ISBNs)
 n_books = len(book_ISBNs)
 
 user_name2id = dict(zip(user_names, range(n_users)))
 book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
 
-split = 80000
+split = 0
 R_train, R_valid = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=False, split=split)
 mu = R_train.sum() / R_train.nnz
 
 with tf.Session(config=config) as sess:
-    result_filename = 'baseline.csv'
+    result_filename = 'title.csv'
     # Initializaing and building model 
-    model = LatentFactor(
+    model = Embed(
         sess=sess,
         model_name=FLAGS.model_name,
         checkpoint_dirname=FLAGS.checkpoint_dirname,
@@ -85,12 +86,13 @@ with tf.Session(config=config) as sess:
         for _ in range(n_train_batch):
             b_user_ids, b_item_ids, b_labels = sess.run([train_user_ids, train_item_ids, train_labels])
             b_user_embeds = user_embeds[b_user_ids].reshape(-1, 1)
+            b_item_embeds = item_embeds[b_item_ids]
 
             time_start = time.time()
 
             current_batch_size = len(b_user_ids)
 
-            b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_labels, is_training=True, weight_decay=FLAGS.weight_decay)
+            b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_user_embeds, b_item_embeds, b_labels, is_training=True, weight_decay=FLAGS.weight_decay)
 
             b_time = time.time()-time_start
             count += current_batch_size
@@ -118,8 +120,9 @@ with tf.Session(config=config) as sess:
             for _ in range(n_valid_batch):
                 b_user_ids, b_item_ids, b_labels = sess.run([valid_user_ids, valid_item_ids, valid_labels])
                 b_user_embeds = user_embeds[b_user_ids].reshape(-1, 1)
+                b_item_embeds = item_embeds[b_item_ids]
 
-                b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_labels, is_training=False)
+                b_loss, b_acc = model.train_valid(b_user_ids, b_item_ids, b_user_embeds, b_item_embeds, b_labels, is_training=False)
 
                 valid_loss.append(b_loss)
                 valid_acc.append(b_acc)
@@ -141,8 +144,9 @@ with tf.Session(config=config) as sess:
             model.save()
         '''
 
-    test_user_ids, test_book_ids = my_IO.read_test(user_name2id, book_ISBN2id)
-    #test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
-    result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
+    test_user_ids, test_item_ids = my_IO.read_test(user_name2id, book_ISBN2id)
+    test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
+    test_item_embeds = item_embeds[test_item_ids]
+    result = model.predict(test_user_ids, test_item_ids, test_user_embeds, test_item_embeds, FLAGS.batch_size)
     np.savetxt(result_filename, result.astype(int), fmt='%d')
 
