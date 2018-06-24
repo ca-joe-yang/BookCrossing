@@ -148,5 +148,5 @@ with tf.Session(config=config) as sess:
     test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
     test_item_embeds = item_embeds[test_item_ids]
     result = model.predict(test_user_ids, test_item_ids, test_user_embeds, test_item_embeds, FLAGS.batch_size)
-    np.savetxt(result_filename, result.astype(int), fmt='%d')
+    np.savetxt(result_filename, np.rint(result), fmt='%d')
 

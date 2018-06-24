@@ -3,7 +3,7 @@
 import numpy as np
 
 def chunks(x, n):
-            return [x[i:i + n] for i in range(0, len(x), n)]
+    return [x[i:i + n] for i in range(0, len(x), n)]
 
 def shuffle_xy(x, y):
     assert(len(x) == len(y))

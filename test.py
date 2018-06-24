@@ -53,4 +53,4 @@ with tf.Session(config=config) as sess:
     test_user_embeds = user_embeds[test_user_ids].reshape(-1, 1)
 
     result = model.predict(test_user_ids, test_book_ids, FLAGS.batch_size)
-    np.savetxt('latent.csv', result.astype(int), fmt='%d')
+    np.savetxt('latent.csv', np.rint(result), fmt='%d')
