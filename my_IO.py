@@ -53,7 +53,7 @@ def get_users_name(filename):
     users = np.array(pd.read_csv(filename, header=0)['User-ID']).astype(str)
     return users
 
-def get_user_embeds(filename):
+def get_user_embeds(filename, item_name2id=None, item_embeds=None):
     x =  pd.read_csv(filename, header=0)
     users = np.array(x['User-ID']).astype(str)
     ages = np.array(x['Age']).astype(int)
@@ -61,7 +61,41 @@ def get_user_embeds(filename):
     ages[ages < 0] = avg
     ages = ages / 100.0
 
-    embeds = dict(zip(users, ages))
+    age_embeds = dict(zip(users, ages))
+
+    item_pair_embeds = {}
+    n_items = len(item_name2id)
+    with open('user_books.csv', 'r') as f:
+        for i, line in enumerate(f):
+            print(i, end='\r')
+            tokens = line.split(',')
+            user_name = tokens[0]
+            embed = np.zeros(100)
+            count = 0
+            for i in tokens[1:]:
+                try:
+                    item_id = item_name2id[check_ISBN_format(i)]
+                except KeyError:
+                    continue
+                count += 1
+                embed[:100] += item_embeds[item_id]
+            if count > 0:
+                embed /= count
+            #print(embed)
+            #print(embeds[user_name])
+            item_pair_embeds[user_name] = embed
+            #print(embeds[user_name])
+
+    embeds = {}
+    for user_name in users:
+        tmp = np.zeros(101)
+        try:
+            tmp[:100] = item_pair_embeds[user_name]
+        except KeyError:
+            pass
+        tmp[100] = age_embeds[user_name]
+        embeds[user_name] = tmp
+    
     return embeds
 
 def get_item_embeds(filename, item_names):
@@ -177,6 +211,7 @@ def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False, s
             book_ids.append(book_id)
             ratings.append(int(x[2]))
     print()
+    mu = np.average(ratings)
 
     if implicit:
         filename2 = 'data/implicit_ratings.csv'
@@ -191,7 +226,7 @@ def read_ratings_train(users_name2id=None, books_ISBN2id=None, implicit=False, s
                 user_ids.append(user_id)
                 book_id = books_ISBN2id[check_ISBN_format(x[1])]
                 book_ids.append(book_id)
-                ratings.append(int(x[0]))
+                ratings.append(mu)
         print()
     
     R_train = sparse.csc_matrix( (ratings[split:], (user_ids[split:], book_ids[split:])), shape=[N,M] )

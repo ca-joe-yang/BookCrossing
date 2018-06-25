@@ -168,15 +168,15 @@ class LatentFactor:
         self.mu, self.p, self.q, self.bu, self.bi = np.load('latent_factor.npy')
 
 
-users_name = np.genfromtxt('users_name.csv', dtype=str)
-n_users = len(users_name)
-books_ISBN = np.genfromtxt('books_ISBN.csv', dtype=str)
-n_books = len(books_ISBN)
-users_name2id = dict(zip(users_name, range(n_users)))
-books_ISBN2id = dict(zip(books_ISBN, range(n_books)))
+user_names = np.genfromtxt('users_name.csv', dtype=str)
+n_users = len(user_names)
+item_names = np.genfromtxt('books_ISBN.csv', dtype=str)
+n_books = len(item_names)
+user_name2id = dict(zip(user_names, range(n_users)))
+book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
 
-ratings_train = my_IO.read_ratings_train(users_name2id, books_ISBN2id, implicit=False)
-test_user_ids, test_book_ids = my_IO.read_test(users_name2id, books_ISBN2id)
+R_train = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=True)
+test_user_ids, test_book_ids = my_IO.read_test(user_name2id, book_ISBN2id)
 
 '''
 model = Naive(N=n_users, M=n_books)
@@ -193,6 +193,6 @@ np.savetxt('baseline_wo_implicit.csv', result.astype(int), fmt='%d')
 '''
 
 model = LatentFactor(N=n_users, M=n_books, latent_dim=10)
-model.fit(ratings_train, 10)
+model.fit(R_train, 10)
 result = model.predict(test_user_ids, test_book_ids)
 np.savetxt('latent_wo_implicit.csv', np.rint(result), fmt='%d')

@@ -13,35 +13,32 @@ slim = tf.contrib.slim
 
 class Embed(Baseline):
 
-    def build(self, mu, N, M, verbose=True):
+    def build(self, mu, N, M, latent_dim=20, verbose=True):
         if verbose:
             start_time = time.time()
             print('[*] Building model...')
 
-        self.mu = tf.get_variable(name='mu', shape=[], initializer=tf.truncated_normal_initializer(mean=5.0, stddev=1.0, dtype=tf.float32))
+        self.mu = mu
         self.N = N
         self.M = M
 
-        #self.is_training = tf.placeholder(tf.bool, name='is_training')
+        self.is_training = tf.placeholder(tf.bool, name='is_training')
         #self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
         self.weight_decay = tf.placeholder(tf.float32, name='weight_decay')
 
         self.bu = tf.get_variable(name='bu', shape=[N], 
             initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.05, dtype=tf.float32),
-            regularizer=tf.contrib.layers.l1_regularizer(scale=self.weight_decay))
+            regularizer=tf.contrib.layers.l2_regularizer(scale=self.weight_decay))
         
         self.bi = tf.get_variable(name='bi', shape=[M], 
             initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.05, dtype=tf.float32),
-            regularizer=tf.contrib.layers.l1_regularizer(scale=self.weight_decay))
-
-        # Age
-
+            regularizer=tf.contrib.layers.l2_regularizer(scale=self.weight_decay))
 
         # Inputs
         self.user_ids = tf.placeholder(tf.int32, shape=[None], name='user_ids')
         self.item_ids = tf.placeholder(tf.int32, shape=[None], name='item_ids')
         
-        self.user_embeds = tf.placeholder(tf.float32, shape=[None, 1], name='user_embeds')
+        self.user_embeds = tf.placeholder(tf.float32, shape=[None, 101], name='user_embeds')
         self.item_embeds = tf.placeholder(tf.float32, shape=[None, 100], name='item_embeds')
         
         self.labels = tf.placeholder(tf.int32, shape=[None], name='labels')
@@ -51,20 +48,23 @@ class Embed(Baseline):
 
         with slim.arg_scope(
             [slim.fully_connected],
-            weights_initializer=tf.truncated_normal_initializer(mean=0, stddev=0.05),
+            weights_initializer=tf.truncated_normal_initializer(mean=0, stddev=1.0),
             biases_initializer=tf.zeros_initializer(),
-            activation_fn=tf.identity,
-            weights_regularizer=tf.contrib.layers.l1_regularizer(scale=self.weight_decay),
+            activation_fn=None,#tf.nn.sigmoid,
+            normalizer_fn=slim.batch_norm,
+            normalizer_params={'is_training': self.is_training}, 
         ):  
         
             x = slim.fully_connected(self.user_embeds, num_outputs=20, scope='fc_user')
             y = slim.fully_connected(self.item_embeds, num_outputs=20, scope='fc_item')
-            net = tf.einsum('ij,ij->i', x,y)
-            #net = tf.multiply(x,y)
-            #net = slim.fully_connected(net, num_outputs=1, scope='fc')
-            embeds_bias = tf.squeeze(net)
+            #embeds_bias = tf.einsum('ij,ij->i', x, y)
+            net = tf.multiply(x,y)
+            net = slim.fully_connected(net, num_outputs=1, scope='fc')
+            self.embeds_bias = tf.squeeze(net)
+
+        self.alpha = tf.get_variable(name='alpha', shape=[])
         
-        self.preds = self.mu + user_bias + item_bias + embeds_bias
+        self.preds = self.mu + user_bias + item_bias + self.alpha * self.embeds_bias
         
         if verbose:
             print(('[*] Model built: %ds' % (time.time() - start_time)))
@@ -85,14 +85,16 @@ class Embed(Baseline):
             self.item_embeds: item_embeds,
             self.labels: labels,
             self.weight_decay: weight_decay,
+            self.is_training: is_training,
         }
             
         if is_training:
-            summary, b_loss, b_acc, _ = self.sess.run(
-                [self.summary, self.mae_loss, self.acc, self.optim], 
+            summary, b_loss, b_acc, _ , a, b = self.sess.run(
+                [self.summary, self.mae_loss, self.acc, self.optim, self.alpha, self.embeds_bias], 
                 feed_dict=feed_dict,
             )
             self.step_idx += 1
+            #print(a,b)
         else:
             summary, b_loss, b_acc = self.sess.run(
                 [self.summary, self.mae_loss, self.acc], 
@@ -124,7 +126,8 @@ class Embed(Baseline):
                 self.item_ids: b_item_ids,
                 self.user_embeds: b_user_embeds,
                 self.item_embeds: b_item_embeds,
-                self.weight_decay: 0.0
+                self.weight_decay: 0.0,
+                self.is_training: False,
             }
                 
             b_preds = self.sess.run(
