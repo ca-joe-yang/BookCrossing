@@ -105,3 +105,11 @@ Book Crossing
 19: 260200/260200, loss:1.030
 20: 260200/260200, loss:1.017
 ```
+
+
+# epoch 15
+epoch 15
+epoch 15
+    1.306346
+    loss: mae
+    lambda=0 

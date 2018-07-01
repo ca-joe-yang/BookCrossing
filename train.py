@@ -15,16 +15,16 @@ from itertools import count
 
 flags = tf.app.flags
 
-flags.DEFINE_integer('n_epoch', 20, 'Epochs to train [50]')
+flags.DEFINE_integer('n_epoch', 30, 'Epochs to train [50]')
 flags.DEFINE_integer('batch_size', 128, '')
 
-flags.DEFINE_float('lr', 1e-5, 'Learning rate [0.00017]')
+flags.DEFINE_float('lr', 1e-3, 'Learning rate [0.00017]')
 #flags.DEFINE_float('keep_prob', 0.5, '')
 flags.DEFINE_float('weight_decay', 0.000005, '')
 
-flags.DEFINE_boolean('restore_ckpt', True, '')
+flags.DEFINE_boolean('restore_ckpt', False, '')
 
-flags.DEFINE_string('model_name', 'small_bs-40660-10165', '')
+flags.DEFINE_string('model_name', 'embed_max-10165', '')
 flags.DEFINE_string('checkpoint_dirname', 'checkpoint', '')
 
 FLAGS = flags.FLAGS
@@ -37,14 +37,13 @@ user_names = np.genfromtxt('users_name.csv', dtype=str)
 n_users = len(user_names)
 
 book_ISBNs = np.genfromtxt('books_ISBN.csv', dtype=str)
-item_embeds = my_IO.get_item_embeds('books_ignore_oov.npy', item_names=book_ISBNs)
+item_embeds = np.load('item_embed_max.npy')
 n_books = len(book_ISBNs)
 
 user_name2id = dict(zip(user_names, range(n_users)))
 book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
 
-user_embeds = my_IO.get_user_embeds('data/users.csv', item_name2id=book_ISBN2id, item_embeds=item_embeds)
-user_embeds = np.array([ user_embeds[name] for name in user_names ])
+user_embeds = np.load('user_embed_max.npy')
 print(user_embeds.shape)
 
 split = 0

@@ -173,9 +173,9 @@ n_users = len(user_names)
 item_names = np.genfromtxt('books_ISBN.csv', dtype=str)
 n_books = len(item_names)
 user_name2id = dict(zip(user_names, range(n_users)))
-book_ISBN2id = dict(zip(book_ISBNs, range(n_books)))
+book_ISBN2id = dict(zip(item_names, range(n_books)))
 
-R_train = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=True)
+R_train, _ = my_IO.read_ratings_train(user_name2id, book_ISBN2id, implicit=False)
 test_user_ids, test_book_ids = my_IO.read_test(user_name2id, book_ISBN2id)
 
 '''
@@ -192,7 +192,7 @@ result = model.predict(test_user_ids, test_book_ids)
 np.savetxt('baseline_wo_implicit.csv', result.astype(int), fmt='%d')
 '''
 
-model = LatentFactor(N=n_users, M=n_books, latent_dim=10)
-model.fit(R_train, 10)
+model = Naive(N=n_users, M=n_books)
+model.fit(R_train)
 result = model.predict(test_user_ids, test_book_ids)
 np.savetxt('latent_wo_implicit.csv', np.rint(result), fmt='%d')

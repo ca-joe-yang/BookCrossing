@@ -39,7 +39,7 @@ class Embed(Baseline):
         self.item_ids = tf.placeholder(tf.int32, shape=[None], name='item_ids')
         
         self.user_embeds = tf.placeholder(tf.float32, shape=[None, 101], name='user_embeds')
-        self.item_embeds = tf.placeholder(tf.float32, shape=[None, 100], name='item_embeds')
+        self.item_embeds = tf.placeholder(tf.float32, shape=[None, 101], name='item_embeds')
         
         self.labels = tf.placeholder(tf.int32, shape=[None], name='labels')
 
